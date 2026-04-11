@@ -79,9 +79,7 @@ copilot-instructions.md
 .github/copilot-instructions.md
 
 # ── Dev artifacts (not for production) ──────────────────────────────────────
-*.png
 .reflect_report*.txt
-screenshots/
 SECURITY-REVIEW*.md
 REVIEW-REPORT.md
 AGENTS.md

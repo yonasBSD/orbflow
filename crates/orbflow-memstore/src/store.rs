@@ -362,10 +362,10 @@ impl CredentialStore for MemStore {
         match map.get(id) {
             None => return Err(OrbflowError::NotFound),
             Some(cred) => {
-                if let Some(oid) = owner_id {
-                    if cred.owner_id.as_deref() != Some(oid) {
-                        return Err(OrbflowError::NotFound);
-                    }
+                if let Some(oid) = owner_id
+                    && cred.owner_id.as_deref() != Some(oid)
+                {
+                    return Err(OrbflowError::NotFound);
                 }
             }
         }

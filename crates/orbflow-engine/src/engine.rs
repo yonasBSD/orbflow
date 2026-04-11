@@ -17,6 +17,7 @@ use uuid::Uuid;
 
 use orbflow_cel::CelEvaluator;
 use orbflow_cel::evaluator::build_mapping_context;
+use orbflow_core::credential_proxy::CredentialAccessTier;
 use orbflow_core::event::*;
 use orbflow_core::execution::*;
 use orbflow_core::metering;
@@ -27,7 +28,6 @@ use orbflow_core::ports::*;
 use orbflow_core::telemetry::*;
 use orbflow_core::wire::*;
 use orbflow_core::workflow::*;
-use orbflow_core::credential_proxy::CredentialAccessTier;
 use orbflow_core::{OrbflowError, result_subject, task_subject, validate_workflow};
 
 /// Key used to reference a credential in node config/parameters maps.
@@ -665,7 +665,17 @@ impl OrbflowEngine {
         config: Option<&HashMap<String, serde_json::Value>>,
         parameters: Option<&HashMap<String, serde_json::Value>>,
         owner_id: Option<&str>,
-    ) -> Result<HashMap<String, (String, CredentialAccessTier, HashMap<String, serde_json::Value>)>, OrbflowError> {
+    ) -> Result<
+        HashMap<
+            String,
+            (
+                String,
+                CredentialAccessTier,
+                HashMap<String, serde_json::Value>,
+            ),
+        >,
+        OrbflowError,
+    > {
         let mut result = HashMap::new();
 
         let cred_store = match &self.cred_store {
@@ -694,7 +704,11 @@ impl OrbflowEngine {
                 }
             };
             let fetch_result = match owner_id {
-                Some(oid) => cred_store.get_credential_for_owner(&cred_id_obj, Some(oid)).await,
+                Some(oid) => {
+                    cred_store
+                        .get_credential_for_owner(&cred_id_obj, Some(oid))
+                        .await
+                }
                 None => cred_store.get_credential(&cred_id_obj).await,
             };
             match fetch_result {
@@ -712,9 +726,7 @@ impl OrbflowEngine {
                             );
                             CredentialAccessTier::default()
                         }
-                        Some(policy)
-                            if !policy.allowed_tiers.contains(&cred.access_tier) =>
-                        {
+                        Some(policy) if !policy.allowed_tiers.contains(&cred.access_tier) => {
                             tracing::warn!(
                                 credential = %cred_id,
                                 tier = ?cred.access_tier,
@@ -725,10 +737,7 @@ impl OrbflowEngine {
                         }
                         _ => cred.access_tier,
                     };
-                    result.insert(
-                        cred_id,
-                        (cred.credential_type, effective_tier, cred.data),
-                    );
+                    result.insert(cred_id, (cred.credential_type, effective_tier, cred.data));
                 }
                 Err(e) => {
                     let truncated = &cred_id[..8.min(cred_id.len())];

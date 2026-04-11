@@ -149,6 +149,8 @@ Fill in a form with your plugin's information:
 | Protocol | gRPC or Subprocess |
 | GitHub Repo | `owner/repo-name` format |
 | Path in Repo | For monorepos, the subdirectory containing the plugin |
+| Git Ref | A pinned commit SHA or tag used for installation |
+| SHA-256 Checksum | Hash of the exact tarball resolved from the repo and git ref |
 | Tags | Comma-separated keywords |
 | Language | Python, TypeScript, Rust, or Go |
 | License | e.g., MIT, Apache-2.0 |
@@ -157,6 +159,8 @@ Fill in a form with your plugin's information:
 | Color | Hex color code for branding |
 
 Click **Validate & Continue** to check your entry for errors. Any issues are shown inline so you can correct them before proceeding.
+
+Use a pinned git ref together with the matching SHA-256 checksum. This ensures Orbflow installs and verifies the exact plugin archive you intended, even after the repository changes later.
 
 ### Step 3 -- Submit to Registry
 

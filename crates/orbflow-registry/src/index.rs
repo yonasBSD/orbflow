@@ -125,6 +125,7 @@ fn to_index_entry(p: &InstalledPlugin) -> orbflow_core::ports::PluginIndexEntry 
         readme: p.manifest.readme.clone(),
         path: None,
         protocol: None,
+        git_ref: None,
         checksum: None,
     }
 }

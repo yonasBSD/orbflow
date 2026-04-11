@@ -22,7 +22,7 @@ interface SubmitPluginProps {
   readonly onClose: () => void;
 }
 
-type Step = "prerequisites" | "form" | "submit";
+type Step = "method" | "form" | "submit";
 
 interface ManifestForm {
   name: string;
@@ -35,6 +35,8 @@ interface ManifestForm {
   color: string;
   repo: string;
   path: string;
+  git_ref: string;
+  checksum: string;
   language: string;
   protocol: string;
   node_types: string;
@@ -53,6 +55,8 @@ const INITIAL_FORM: ManifestForm = {
   color: "",
   repo: "",
   path: "",
+  git_ref: "",
+  checksum: "",
   language: "python",
   protocol: "grpc",
   node_types: "",
@@ -61,7 +65,7 @@ const INITIAL_FORM: ManifestForm = {
 };
 
 export function SubmitPlugin({ onClose }: SubmitPluginProps) {
-  const [step, setStep] = useState<Step>("prerequisites");
+  const [step, setStep] = useState<Step>("method");
   const [form, setForm] = useState<ManifestForm>(INITIAL_FORM);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [validating, setValidating] = useState(false);
@@ -95,6 +99,8 @@ export function SubmitPlugin({ onClose }: SubmitPluginProps) {
     if (form.color.trim()) entry.color = form.color.trim();
     if (form.repo.trim()) entry.repo = form.repo.trim();
     if (form.path.trim()) entry.path = form.path.trim();
+    entry.git_ref = form.git_ref.trim();
+    entry.checksum = form.checksum.trim().toLowerCase();
     if (form.language.trim()) entry.language = form.language.trim();
     return entry;
   }, [form]);
@@ -158,7 +164,7 @@ export function SubmitPlugin({ onClose }: SubmitPluginProps) {
             <div>
               <h2 className="text-sm font-bold text-orbflow-text-secondary">Submit a Plugin</h2>
               <p className="text-[11px] text-orbflow-text-ghost mt-0.5">
-                {step === "prerequisites" && "Step 1 of 3 — Prerequisites"}
+                {step === "method" && "Step 1 of 3 — Choose Method"}
                 {step === "form" && "Step 2 of 3 — Plugin Details"}
                 {step === "submit" && "Step 3 of 3 — Submit to Registry"}
               </p>
@@ -177,12 +183,12 @@ export function SubmitPlugin({ onClose }: SubmitPluginProps) {
 
         {/* Step indicator */}
         <div className="flex items-center gap-1 px-5 pt-4">
-          {(["prerequisites", "form", "submit"] as const).map((s, i) => (
+          {(["method", "form", "submit"] as const).map((s) => (
             <div
               key={s}
               className={cn(
                 "h-1 flex-1 rounded-full transition-all duration-300",
-                step === s || (s === "prerequisites" && step !== "prerequisites") || (s === "form" && step === "submit")
+                step === s || (s === "method" && step !== "method") || (s === "form" && step === "submit")
                   ? "bg-electric-indigo"
                   : "bg-orbflow-surface-hover",
               )}
@@ -192,8 +198,8 @@ export function SubmitPlugin({ onClose }: SubmitPluginProps) {
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5">
-          {step === "prerequisites" && (
-            <PrerequisitesStep onNext={() => setStep("form")} />
+          {step === "method" && (
+            <MethodStep onManual={() => setStep("form")} onClose={onClose} />
           )}
           {step === "form" && (
             <FormStep
@@ -202,7 +208,7 @@ export function SubmitPlugin({ onClose }: SubmitPluginProps) {
               errors={validationErrors}
               validating={validating}
               onValidate={handleValidate}
-              onBack={() => setStep("prerequisites")}
+              onBack={() => setStep("method")}
             />
           )}
           {step === "submit" && (
@@ -221,71 +227,168 @@ export function SubmitPlugin({ onClose }: SubmitPluginProps) {
   );
 }
 
-function PrerequisitesStep({ onNext }: { readonly onNext: () => void }) {
-  const checks = [
-    { icon: "github" as const, label: "Plugin hosted on a public GitHub repository" },
-    { icon: "file-text" as const, label: "Repository contains an orbflow-plugin.json manifest" },
-    { icon: "package" as const, label: "Plugin implements the Orbflow plugin protocol (gRPC or Subprocess)" },
-    { icon: "code" as const, label: "Plugin is tested and working locally" },
-  ];
+const WORKFLOW_YAML = `name: Publish to Orbflow Registry
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: orbflow-dev/publish-plugin-action@v1
+        with:
+          token: \${{ secrets.ORBFLOW_PUBLISH_TOKEN }}`;
+
+function MethodStep({
+  onManual,
+  onClose,
+}: {
+  readonly onManual: () => void;
+  readonly onClose: () => void;
+}) {
+  const [copiedWorkflow, setCopiedWorkflow] = useState(false);
+
+  const handleCopyWorkflow = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(WORKFLOW_YAML);
+      setCopiedWorkflow(true);
+      setTimeout(() => setCopiedWorkflow(false), 2000);
+    } catch {
+      // fallback: ignored
+    }
+  }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h3 className="text-sm font-semibold text-orbflow-text-secondary mb-2">Before you submit</h3>
+        <h3 className="text-sm font-semibold text-orbflow-text-secondary mb-1">Choose how to publish</h3>
         <p className="text-xs text-orbflow-text-muted leading-relaxed">
-          Make sure your plugin meets these requirements before submitting to the community registry.
+          Both methods submit your plugin to the community registry. The automated method is recommended.
         </p>
       </div>
 
-      <div className="space-y-3">
-        {checks.map((check) => (
-          <div
-            key={check.label}
-            className="flex items-start gap-3 rounded-xl bg-orbflow-surface border border-orbflow-border/50 p-4"
-          >
-            <div className="w-8 h-8 rounded-lg bg-electric-indigo/10 flex items-center justify-center shrink-0 mt-0.5">
-              <NodeIcon name={check.icon} className="w-4 h-4 text-electric-indigo" />
-            </div>
-            <p className="text-sm text-orbflow-text-muted leading-relaxed pt-1">{check.label}</p>
+      {/* Option A: Automated */}
+      <div className="rounded-xl border-2 border-electric-indigo/40 bg-electric-indigo/[0.03] p-5 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-electric-indigo/15 flex items-center justify-center">
+            <NodeIcon name="zap" className="w-4.5 h-4.5 text-electric-indigo" />
           </div>
-        ))}
-      </div>
+          <div>
+            <h4 className="text-sm font-bold text-orbflow-text-secondary">
+              Automated
+              <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5
+                rounded-full bg-electric-indigo/15 text-electric-indigo">
+                Recommended
+              </span>
+            </h4>
+            <p className="text-[11px] text-orbflow-text-muted mt-0.5">
+              Add a GitHub Action, then just push a tag
+            </p>
+          </div>
+        </div>
 
-      <div className="rounded-xl bg-orbflow-surface border border-orbflow-border/50 p-4">
-        <h4 className="text-xs font-semibold text-orbflow-text-ghost uppercase tracking-wider mb-2">Resources</h4>
-        <div className="space-y-2">
-          <a
-            href="https://github.com/orbflow-dev/orbflow-plugins"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 text-xs text-electric-indigo hover:text-electric-indigo/80 transition-colors"
+        <div className="space-y-3">
+          <div className="flex items-start gap-2.5 text-xs text-orbflow-text-muted">
+            <span className="shrink-0 w-5 h-5 rounded-md bg-electric-indigo/10 text-electric-indigo
+              flex items-center justify-center text-[10px] font-bold mt-0.5">1</span>
+            <span className="leading-relaxed pt-0.5">
+              Copy the workflow below to <code className="font-mono text-electric-indigo">.github/workflows/publish.yml</code> in
+              your plugin repo
+            </span>
+          </div>
+          <div className="flex items-start gap-2.5 text-xs text-orbflow-text-muted">
+            <span className="shrink-0 w-5 h-5 rounded-md bg-electric-indigo/10 text-electric-indigo
+              flex items-center justify-center text-[10px] font-bold mt-0.5">2</span>
+            <span className="leading-relaxed pt-0.5">
+              Add <code className="font-mono text-electric-indigo">ORBFLOW_PUBLISH_TOKEN</code> to your repo secrets
+            </span>
+          </div>
+          <div className="flex items-start gap-2.5 text-xs text-orbflow-text-muted">
+            <span className="shrink-0 w-5 h-5 rounded-md bg-electric-indigo/10 text-electric-indigo
+              flex items-center justify-center text-[10px] font-bold mt-0.5">3</span>
+            <span className="leading-relaxed pt-0.5">
+              Publish anytime with <code className="font-mono text-electric-indigo">git tag v1.0.0 && git push origin v1.0.0</code>
+            </span>
+          </div>
+        </div>
+
+        {/* Workflow YAML preview */}
+        <div className="relative">
+          <pre className="rounded-lg border border-orbflow-border/40 bg-orbflow-bg p-3
+            text-[11px] font-mono text-orbflow-text-muted leading-relaxed overflow-x-auto max-h-40 scrollbar-thin">
+            {WORKFLOW_YAML}
+          </pre>
+          <button
+            type="button"
+            onClick={handleCopyWorkflow}
+            className={cn(
+              "absolute top-2 right-2 rounded-md px-2.5 py-1 text-[10px] font-medium transition-all duration-200",
+              "flex items-center gap-1.5",
+              copiedWorkflow
+                ? "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/20"
+                : "bg-orbflow-surface-hover text-orbflow-text-muted hover:text-orbflow-text-secondary ring-1 ring-orbflow-border/30",
+            )}
           >
-            <NodeIcon name="link" className="w-3.5 h-3.5" />
-            Community Plugin Registry
-          </a>
-          <a
-            href="https://github.com/orbflow-dev/orbflow/tree/main/docs/plugins"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 text-xs text-electric-indigo hover:text-electric-indigo/80 transition-colors"
-          >
-            <NodeIcon name="link" className="w-3.5 h-3.5" />
-            Plugin Development Guide
-          </a>
+            <NodeIcon name={copiedWorkflow ? "check" : "clipboard"} className="w-3 h-3" />
+            {copiedWorkflow ? "Copied!" : "Copy"}
+          </button>
+        </div>
+
+        <div className="rounded-lg bg-orbflow-surface/50 border border-orbflow-border/30 px-3 py-2">
+          <p className="text-[10px] text-orbflow-text-ghost leading-relaxed">
+            Or use the CLI: <code className="font-mono text-electric-indigo">orbflow-publish</code> from your plugin directory.
+            Handles tagging, checksums, and PR creation in one command.
+          </p>
         </div>
       </div>
 
+      {/* Option B: Manual */}
       <button
         type="button"
-        onClick={onNext}
-        className="w-full rounded-xl bg-electric-indigo text-white py-3 text-sm font-semibold
-          flex items-center justify-center gap-2 shadow-md shadow-electric-indigo/20
-          hover:shadow-lg hover:brightness-110 transition-all duration-200"
+        onClick={onManual}
+        className="w-full rounded-xl border border-orbflow-border bg-orbflow-surface p-4 text-left
+          hover:bg-orbflow-surface-hover hover:border-orbflow-border/80 transition-all duration-200 group"
       >
-        I meet the requirements
-        <NodeIcon name="arrow-right" className="w-4 h-4" />
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-orbflow-surface-hover flex items-center justify-center
+            group-hover:bg-orbflow-border/30 transition-colors">
+            <NodeIcon name="file-text" className="w-4.5 h-4.5 text-orbflow-text-muted" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-sm font-semibold text-orbflow-text-secondary">Manual submission</h4>
+            <p className="text-[11px] text-orbflow-text-ghost mt-0.5">
+              Fill in the form, compute the checksum yourself, and open a PR
+            </p>
+          </div>
+          <NodeIcon name="arrow-right" className="w-4 h-4 text-orbflow-text-ghost
+            group-hover:text-orbflow-text-muted transition-colors" />
+        </div>
       </button>
+
+      {/* Resources */}
+      <div className="flex items-center gap-4 pt-1">
+        <a
+          href="https://github.com/orbflow-dev/orbflow-plugins"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-[11px] text-electric-indigo hover:text-electric-indigo/80 transition-colors"
+        >
+          <NodeIcon name="link" className="w-3 h-3" />
+          Plugin Registry
+        </a>
+        <a
+          href="https://github.com/orbflow-dev/orbflow/tree/main/docs/plugins"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-[11px] text-electric-indigo hover:text-electric-indigo/80 transition-colors"
+        >
+          <NodeIcon name="link" className="w-3 h-3" />
+          Development Guide
+        </a>
+      </div>
     </div>
   );
 }
@@ -337,6 +440,10 @@ function FormStep({
           onChange={(v) => onUpdate("repo", v)} hint="For downloads" />
         <Field label="Path in Repo" placeholder="python/orbflow/my-plugin" value={form.path}
           onChange={(v) => onUpdate("path", v)} hint="Monorepo path" />
+        <Field label="Git Ref *" placeholder="v0.1.0 or commit SHA" value={form.git_ref}
+          onChange={(v) => onUpdate("git_ref", v)} hint="Pin installs to an immutable tag or commit" />
+        <Field label="SHA-256 Checksum *" placeholder="64-char tarball digest" value={form.checksum}
+          onChange={(v) => onUpdate("checksum", v)} hint="Hash of the exact tarball resolved from repo + git ref" />
         <Field label="Tags" placeholder="csv, parser, data" value={form.tags}
           onChange={(v) => onUpdate("tags", v)} hint="Comma-separated" />
         <SelectField label="Language" value={form.language}
@@ -355,6 +462,13 @@ function FormStep({
           onChange={(v) => onUpdate("icon", v)} hint="Icon name" />
         <Field label="Color" placeholder="#6366F1" value={form.color}
           onChange={(v) => onUpdate("color", v)} hint="Hex color" />
+      </div>
+
+      <div className="rounded-xl bg-orbflow-surface border border-orbflow-border/50 p-4">
+        <p className="text-xs text-orbflow-text-muted leading-relaxed">
+          Use a pinned <code className="font-mono text-electric-indigo">git_ref</code> and the SHA-256 of that exact
+          archive. Avoid moving branches with stale checksums.
+        </p>
       </div>
 
       {errors.length > 0 && (

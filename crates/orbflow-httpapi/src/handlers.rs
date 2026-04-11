@@ -532,7 +532,10 @@ pub async fn list_credentials(
         None => return write_error(StatusCode::NOT_FOUND, "credentials API not enabled"),
     };
 
-    match store.list_credentials_for_owner(Some(&auth_user.user_id)).await {
+    match store
+        .list_credentials_for_owner(Some(&auth_user.user_id))
+        .await
+    {
         Ok(creds) => write_data(StatusCode::OK, creds),
         Err(e) => {
             error!(error = %e, "failed to list credentials");
@@ -684,7 +687,10 @@ pub async fn delete_credential(
         Ok(id) => id,
         Err(e) => return write_safe_error(&e).into_response(),
     };
-    match store.delete_credential(&cred_id, Some(&auth_user.user_id)).await {
+    match store
+        .delete_credential(&cred_id, Some(&auth_user.user_id))
+        .await
+    {
         Ok(()) => (
             StatusCode::OK,
             Json(serde_json::json!({"data": {"status": "deleted"}})),
@@ -2077,10 +2083,7 @@ pub async fn install_plugin(
         }
         Err(e) => {
             tracing::error!(plugin = %name, error = %e, "failed to install plugin");
-            return write_error(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "failed to download and install plugin from registry",
-            );
+            return write_safe_error(&e);
         }
     }
 
@@ -2113,7 +2116,7 @@ pub async fn install_plugin(
     // JSON from the index entry so it can be parsed on restart.
     let has_valid_manifest = downloaded_manifest
         .as_ref()
-        .is_some_and(|m| m.get("protocol").is_some_and(|p| p.is_object()));
+        .is_some_and(|m| m.get("protocol").is_some_and(|p| p.is_object() || p.is_string()));
 
     let manifest_str = {
         let manifest_json =
@@ -2315,6 +2318,35 @@ pub async fn validate_manifest(Json(body): Json<serde_json::Value>) -> Response 
         && (!repo.contains('/') || repo.contains(".."))
     {
         errors.push("repo must be in \"owner/repo\" format".into());
+    }
+
+    match body.get("git_ref").and_then(|v| v.as_str()) {
+        Some(git_ref) if git_ref.trim().is_empty() => {
+            errors.push("git_ref must not be empty".into())
+        }
+        Some(git_ref)
+            if git_ref.len() > 255
+                || git_ref.contains("..")
+                || git_ref.contains('\\')
+                || git_ref.starts_with('/')
+                || git_ref.chars().any(char::is_whitespace) =>
+        {
+            errors.push("git_ref must be a valid pinned commit SHA, tag, or branch name".into());
+        }
+        Some(_) | None => {}   // git_ref is optional; installer defaults to master
+    }
+
+    match body.get("checksum").and_then(|v| v.as_str()) {
+        Some(checksum) if checksum.trim().is_empty() => {
+            errors.push("checksum must not be empty".into())
+        }
+        Some(checksum)
+            if checksum.len() != 64 || !checksum.chars().all(|c| c.is_ascii_hexdigit()) =>
+        {
+            errors.push("checksum must be a 64-character SHA-256 hex string".into());
+        }
+        Some(_) => {}
+        None => errors.push("checksum is required".into()),
     }
 
     if errors.is_empty() {
@@ -4410,6 +4442,8 @@ mod tests {
             "author": "Tester",
             "node_types": ["plugin:test"],
             "protocol": "grpc",
+            "git_ref": "0123456789abcdef0123456789abcdef01234567",
+            "checksum": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         });
 
         let json = call_validate(body);
@@ -4424,6 +4458,8 @@ mod tests {
             "author": "Tester",
             "node_types": ["plugin:test"],
             "protocol": "grpc",
+            "git_ref": "0123456789abcdef0123456789abcdef01234567",
+            "checksum": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         });
 
         let json = call_validate(body);
@@ -4446,6 +4482,8 @@ mod tests {
             "author": "auth",
             "node_types": ["plugin:test"],
             "protocol": "grpc",
+            "git_ref": "0123456789abcdef0123456789abcdef01234567",
+            "checksum": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         });
 
         let json = call_validate(body);
@@ -4467,6 +4505,8 @@ mod tests {
             "author": "auth",
             "node_types": ["plugin:test"],
             "protocol": "grpc",
+            "git_ref": "0123456789abcdef0123456789abcdef01234567",
+            "checksum": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         });
 
         let json = call_validate(body);
@@ -4488,6 +4528,8 @@ mod tests {
             "author": "auth",
             "node_types": [],
             "protocol": "grpc",
+            "git_ref": "0123456789abcdef0123456789abcdef01234567",
+            "checksum": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         });
 
         let json = call_validate(body);
@@ -4509,6 +4551,8 @@ mod tests {
             "author": "auth",
             "node_types": ["plugin:test"],
             "protocol": "websocket",
+            "git_ref": "0123456789abcdef0123456789abcdef01234567",
+            "checksum": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         });
 
         let json = call_validate(body);
@@ -4531,6 +4575,8 @@ mod tests {
             "author": "auth",
             "node_types": node_types,
             "protocol": "grpc",
+            "git_ref": "0123456789abcdef0123456789abcdef01234567",
+            "checksum": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         });
 
         let json = call_validate(body);
@@ -4540,6 +4586,51 @@ mod tests {
             errors
                 .iter()
                 .any(|e| e.as_str().unwrap().contains("at most 100"))
+        );
+    }
+
+    #[test]
+    fn validate_manifest_rejects_missing_checksum() {
+        let body = serde_json::json!({
+            "name": "test",
+            "version": "1.0.0",
+            "description": "desc",
+            "author": "auth",
+            "node_types": ["plugin:test"],
+            "protocol": "grpc",
+            "git_ref": "0123456789abcdef0123456789abcdef01234567",
+        });
+
+        let json = call_validate(body);
+        assert_eq!(json["data"]["valid"], false);
+        let errors = json["data"]["errors"].as_array().unwrap();
+        assert!(
+            errors
+                .iter()
+                .any(|e| e.as_str().unwrap().contains("checksum is required"))
+        );
+    }
+
+    #[test]
+    fn validate_manifest_rejects_invalid_checksum() {
+        let body = serde_json::json!({
+            "name": "test",
+            "version": "1.0.0",
+            "description": "desc",
+            "author": "auth",
+            "node_types": ["plugin:test"],
+            "protocol": "grpc",
+            "git_ref": "0123456789abcdef0123456789abcdef01234567",
+            "checksum": "not-a-sha256",
+        });
+
+        let json = call_validate(body);
+        assert_eq!(json["data"]["valid"], false);
+        let errors = json["data"]["errors"].as_array().unwrap();
+        assert!(
+            errors
+                .iter()
+                .any(|e| e.as_str().unwrap().contains("SHA-256"))
         );
     }
 }

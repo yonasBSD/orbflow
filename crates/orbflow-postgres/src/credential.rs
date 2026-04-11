@@ -25,6 +25,7 @@ struct CredentialRow {
     r#type: String,
     data: Vec<u8>,
     description: String,
+    owner_id: Option<String>,
     access_tier: String,
     policy: Option<serde_json::Value>,
     created_at: DateTime<Utc>,
@@ -90,11 +91,7 @@ fn policy_from_json(val: Option<serde_json::Value>) -> Option<CredentialPolicy> 
 
 /// Convert description column (empty string = NULL convention).
 fn desc_opt(s: String) -> Option<String> {
-    if s.is_empty() {
-        None
-    } else {
-        Some(s)
-    }
+    if s.is_empty() { None } else { Some(s) }
 }
 
 impl PgStore {
@@ -135,9 +132,12 @@ impl PgStore {
     /// doesn't for the lifetime of the process.
     async fn has_owner_column(&self) -> Result<bool, OrbflowError> {
         static HAS_OWNER: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-        if let Some(&v) = HAS_OWNER.get() {
-            return Ok(v);
+        if let Some(&v) = HAS_OWNER.get()
+            && v
+        {
+            return Ok(true); // column confirmed to exist — permanent
         }
+        // If false was cached or no value yet — re-check (column may have been added)
         let result: Option<(i32,)> = sqlx::query_as(
             r#"SELECT 1 FROM information_schema.columns
                WHERE table_name = 'credentials' AND column_name = 'owner_id'"#,
@@ -148,7 +148,9 @@ impl PgStore {
             OrbflowError::Database(format!("postgres: check owner_id column existence: {e}"))
         })?;
         let exists = result.is_some();
-        let _ = HAS_OWNER.set(exists);
+        if exists {
+            let _ = HAS_OWNER.set(true); // only cache positive result
+        }
         Ok(exists)
     }
 }
@@ -221,7 +223,7 @@ impl CredentialStore for PgStore {
         }
 
         let row: CredentialRow = sqlx::query_as(
-            r#"SELECT id, name, type, data, description, access_tier, policy, created_at, updated_at
+            r#"SELECT id, name, type, data, description, owner_id, access_tier, policy, created_at, updated_at
                FROM credentials
                WHERE id = $1 AND ($2::text IS NULL OR owner_id = $2)"#,
         )
@@ -241,7 +243,7 @@ impl CredentialStore for PgStore {
             credential_type: row.r#type,
             data,
             description: desc_opt(row.description),
-            owner_id: owner_id.map(str::to_owned),
+            owner_id: row.owner_id,
             access_tier: parse_access_tier(&row.access_tier),
             policy: policy_from_json(row.policy),
             created_at: row.created_at,
@@ -250,15 +252,27 @@ impl CredentialStore for PgStore {
     }
 
     async fn get_credential(&self, id: &CredentialId) -> Result<Credential, OrbflowError> {
-        let row: CredentialRow = sqlx::query_as(
-            r#"SELECT id, name, type, data, description, access_tier, policy, created_at, updated_at
+        let row: CredentialRow = if self.has_owner_column().await? {
+            sqlx::query_as(
+                r#"SELECT id, name, type, data, description, owner_id, access_tier, policy, created_at, updated_at
                FROM credentials WHERE id = $1"#,
-        )
-        .bind(id.0.as_str())
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| OrbflowError::Database(format!("postgres: get credential {id}: {e}")))?
-        .ok_or(OrbflowError::NotFound)?;
+            )
+            .bind(id.0.as_str())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| OrbflowError::Database(format!("postgres: get credential {id}: {e}")))?
+            .ok_or(OrbflowError::NotFound)?
+        } else {
+            sqlx::query_as(
+                r#"SELECT id, name, type, data, description, NULL as owner_id, access_tier, policy, created_at, updated_at
+               FROM credentials WHERE id = $1"#,
+            )
+            .bind(id.0.as_str())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| OrbflowError::Database(format!("postgres: get credential {id}: {e}")))?
+            .ok_or(OrbflowError::NotFound)?
+        };
 
         let data = self.decrypt_data(&row.data)?;
 
@@ -268,7 +282,7 @@ impl CredentialStore for PgStore {
             credential_type: row.r#type,
             data,
             description: desc_opt(row.description),
-            owner_id: None,
+            owner_id: row.owner_id,
             access_tier: parse_access_tier(&row.access_tier),
             policy: policy_from_json(row.policy),
             created_at: row.created_at,

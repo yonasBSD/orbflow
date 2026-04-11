@@ -398,7 +398,7 @@ export default function Home() {
                       : "Engine Offline"}
                   </span>
                   <span className="text-caption font-mono ml-auto text-orbflow-text-ghost">
-                    v0.5
+                    1.0
                   </span>
                 </>
               )}

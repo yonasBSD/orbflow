@@ -4,7 +4,7 @@
 
 # Orbflow
 
-Distributed workflow automation engine built for AI-native workloads.
+Build workflows visually, run them reliably, and manage AI, plugins, approvals, and costs in one place.
 
 [![Rust](https://img.shields.io/badge/Rust-Edition_2024-f74c00?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000?style=flat-square&logo=next.js)](https://nextjs.org)
@@ -14,17 +14,61 @@ Distributed workflow automation engine built for AI-native workloads.
 [![CI](https://img.shields.io/github/actions/workflow/status/orbflow-dev/orbflow/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/orbflow-dev/orbflow/actions/workflows/ci.yml)
 [![codecov](https://img.shields.io/codecov/c/github/orbflow-dev/orbflow?style=flat-square&logo=codecov&logoColor=white)](https://codecov.io/gh/orbflow-dev/orbflow)
 
-[Quick Start](#quick-start) · [Features](#features) · [Architecture](#architecture) · [API Reference](#api-reference) · [Development](#development)
+[Start Here](#start-here) · [Product Tour](#product-tour) · [Quick Start](#quick-start) · [Technical Highlights](#technical-highlights) · [Development](#development)
 
 </div>
 
 ---
 
-Orbflow runs workflows as directed acyclic graphs, with a Rust backend (20 crates, Ports & Adapters) and a visual builder frontend (Next.js 16 + React 19). It ships 21 built-in nodes -- including 6 AI nodes with multi-provider support -- backed by PostgreSQL for persistence and NATS JetStream for distributed task routing.
+Orbflow is a visual workflow platform for teams that want to connect APIs, AI steps, schedules, webhooks, and human approvals without stitching everything together by hand.
+
+You can use it to:
+
+- build automations in a canvas instead of starting with glue code
+- watch workflow runs, failures, and costs in one place
+- manage credentials, plugins, reviews, budgets, alerts, and access from the same app
+
+If you are new to the project, read the next three sections first. The later sections move into runtime architecture, configuration, APIs, and development details.
+
+## Start Here
+
+Most people use Orbflow in this order:
+
+1. Start in `Templates` if you want a ready-made workflow, or `Builder` if you want to create one from scratch.
+2. Run the workflow and watch progress in `Activity`.
+3. Check `Analytics`, `Budgets`, and `Alerts` when you need visibility into performance and cost.
+4. Add API keys in `Credentials` and install extensions from `Marketplace`.
+5. Use `Reviews` and `Access` when multiple people work in the same environment.
+
+## Product Tour
+
+These screenshots come from [`docs/user-guide/screenshots/`](docs/user-guide/screenshots/).
+
+| Page | What it is for | Image file | Preview |
+|------|----------------|------------|---------|
+| Builder | Create automations from scratch in the visual canvas | [`01-builder.png`](docs/user-guide/screenshots/01-builder.png) | <img src="docs/user-guide/screenshots/01-builder.png" alt="Builder page" width="260" /> |
+| Activity | Monitor workflow runs and inspect execution progress | [`02-activity.png`](docs/user-guide/screenshots/02-activity.png) | <img src="docs/user-guide/screenshots/02-activity.png" alt="Activity page" width="260" /> |
+| Analytics | View execution metrics, latency, and SLA trends | [`03-analytics.png`](docs/user-guide/screenshots/03-analytics.png) | <img src="docs/user-guide/screenshots/03-analytics.png" alt="Analytics page" width="260" /> |
+| Templates | Start from prebuilt workflows instead of building from zero | [`04-templates.png`](docs/user-guide/screenshots/04-templates.png) | <img src="docs/user-guide/screenshots/04-templates.png" alt="Templates page" width="260" /> |
+| Credentials | Store and manage secrets, tokens, and API keys | [`05-credentials.png`](docs/user-guide/screenshots/05-credentials.png) | <img src="docs/user-guide/screenshots/05-credentials.png" alt="Credentials page" width="260" /> |
+| Marketplace | Browse, install, and manage plugins and integrations | [`06-marketplace.png`](docs/user-guide/screenshots/06-marketplace.png) | <img src="docs/user-guide/screenshots/06-marketplace.png" alt="Marketplace page" width="260" /> |
+| Reviews | Create and review change requests before merging workflow updates | [`07-reviews.png`](docs/user-guide/screenshots/07-reviews.png) | <img src="docs/user-guide/screenshots/07-reviews.png" alt="Reviews page" width="260" /> |
+| Budgets | Track spend and set cost limits for workflows | [`08-budgets.png`](docs/user-guide/screenshots/08-budgets.png) | <img src="docs/user-guide/screenshots/08-budgets.png" alt="Budgets page" width="260" /> |
+| Alerts | Define monitoring rules and notification triggers | [`09-alerts.png`](docs/user-guide/screenshots/09-alerts.png) | <img src="docs/user-guide/screenshots/09-alerts.png" alt="Alerts page" width="260" /> |
+| Access | Manage roles and permissions for your team | [`10-access.png`](docs/user-guide/screenshots/10-access.png) | <img src="docs/user-guide/screenshots/10-access.png" alt="Access page" width="260" /> |
 
 ## Quick Start
 
-### Prerequisites
+The fastest way to try Orbflow locally is:
+
+1. Install the tools below.
+2. Run `just setup`.
+3. Run `just dev`.
+4. Open `http://localhost:3000`.
+
+If this is your first time inside the app, start with `Templates` for a guided path or `Builder` for a blank canvas.
+
+### What You Need
 
 | Tool | Version | Install |
 |------|---------|---------|
@@ -34,17 +78,17 @@ Orbflow runs workflows as directed acyclic graphs, with a Rust backend (20 crate
 | Docker | Latest | [docker.com](https://www.docker.com/get-started) |
 | just | Latest | `cargo install just` or `winget install Casey.Just` |
 
-### Steps
+### Run It
 
 ```bash
 # Clone the repository
 git clone https://github.com/orbflow-dev/orbflow.git
 cd orbflow
 
-# First-time setup (checks tools, installs deps, starts Postgres + NATS)
+# First-time setup: checks tools, installs deps, starts Postgres + NATS
 just setup
 
-# Start everything (server + worker + frontend) with live reload
+# Start the app stack (server + worker + frontend) with live reload
 just dev
 ```
 
@@ -117,16 +161,18 @@ curl http://localhost:8080/api/v1/node-types | jq '.data | length'
 
 ---
 
-## Features
+## Technical Highlights
 
-### Core Engine
+Orbflow uses a Rust backend workspace, a Next.js frontend, PostgreSQL for persistence, and NATS JetStream for task routing. The points below are the implementation-oriented capabilities behind the user-facing product tour above.
+
+### Workflow Runtime
 
 - **DAG-based orchestration** -- conditional branching, parallel execution, and saga compensation for rollbacks
 - **CEL expression evaluation** -- dynamic values using [Common Expression Language](https://github.com/google/cel-spec), evaluated at runtime
 - **Event sourcing** -- all state changes persisted as domain events with periodic snapshots for crash recovery
 - **Per-instance locking** -- concurrent result handling with optimistic retry (up to 3 attempts)
 
-### AI Orchestration
+### AI
 
 - **6 specialized AI nodes** -- chat, extract, classify, summarize, sentiment, translate
 - **Multi-provider** -- OpenAI, Anthropic, and Google AI via a unified interface
@@ -134,7 +180,7 @@ curl http://localhost:8080/api/v1/node-types | jq '.data | length'
 - **MCP integration** -- [Model Context Protocol](https://modelcontextprotocol.io) support for connecting AI models to external tools
 - **Cost tracking** -- per-execution token usage and budget enforcement
 
-### Enterprise
+### Team Controls
 
 - **RBAC** -- fine-grained, node-level permission enforcement with configurable policies
 - **PR-style collaboration** -- change requests with visual diffs, inline comments, and submit/approve/reject/merge workflow
@@ -142,7 +188,7 @@ curl http://localhost:8080/api/v1/node-types | jq '.data | length'
 - **Compliance exports** -- SOC2, HIPAA, and PCI-ready audit trail exports
 - **Workflow versioning** -- automatic snapshots with diff comparison between any two versions
 
-### Observability
+### Visibility
 
 - **OpenTelemetry** -- OTLP export to Jaeger, Grafana Tempo, or any OTel-compatible collector
 - **Analytics** -- p50/p95/p99 latency breakdowns, failure pattern detection, cost tracking

@@ -719,6 +719,9 @@ pub struct PluginIndexEntry {
     /// Plugin protocol (e.g., "grpc", "subprocess").
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub protocol: Option<String>,
+    /// Git ref (commit SHA, tag, or branch) used for installation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub git_ref: Option<String>,
     /// SHA-256 checksum of the plugin tarball (optional, verified on install).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub checksum: Option<String>,

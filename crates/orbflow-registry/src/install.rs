@@ -74,35 +74,65 @@ pub async fn download_plugin_from(
         ));
     }
 
+    // Validate git_ref — defense in depth (validate_manifest checks at submission,
+    // but the index could be compromised)
+    if git_ref.is_empty()
+        || git_ref.len() > 255
+        || git_ref.contains("..")
+        || git_ref.contains('\\')
+        || git_ref.starts_with('/')
+        || git_ref.chars().any(char::is_whitespace)
+    {
+        return Err(RegistryError::Parse(format!("invalid git_ref: {git_ref}")));
+    }
+
     // Optional GitHub token for authenticated requests (5,000 req/hr vs 60/hr).
     let github_token = std::env::var("GITHUB_TOKEN")
         .or_else(|_| std::env::var("GH_TOKEN"))
         .ok();
 
-    // Try the direct codeload URL first (avoids a 302 redirect hop),
-    // then fall back to the GitHub API tarball endpoint.
-    let direct_url =
-        format!("https://codeload.github.com/{repo}/legacy.tar.gz/refs/heads/{git_ref}");
+    // Try the direct codeload URL first for the default branch (avoids a 302
+    // redirect hop). Pinned refs such as tags or commit SHAs fall back to the
+    // GitHub API tarball endpoint because the branch-specific codeload URL
+    // does not address arbitrary refs.
+    let direct_url = (git_ref == DEFAULT_REF)
+        .then(|| format!("https://codeload.github.com/{repo}/legacy.tar.gz/refs/heads/{git_ref}"));
     let api_url = format!("https://api.github.com/repos/{repo}/tarball/{git_ref}");
 
-    let direct_result = {
+    let direct_result = if let Some(ref direct_url) = direct_url {
         let mut req = http
-            .get(&direct_url)
+            .get(direct_url)
             .header("User-Agent", "orbflow-registry")
             .timeout(Duration::from_secs(120));
         if let Some(ref token) = github_token {
             req = req.header("Authorization", format!("Bearer {token}"));
         }
-        req.send().await
+        Some(req.send().await)
+    } else {
+        None
     };
     let resp = match direct_result {
-        Ok(r) if r.status().is_success() => {
-            tracing::debug!(url = %direct_url, "downloading tarball via codeload");
+        Some(Ok(r)) if r.status().is_success() => {
+            tracing::debug!(
+                url = %direct_url.as_deref().unwrap_or_default(),
+                "downloading tarball via codeload"
+            );
             r
         }
-        _ => {
-            // Fallback to API endpoint (follows 302 redirect).
-            tracing::debug!(url = %api_url, "codeload unavailable, falling back to API");
+        other => {
+            // Log the codeload failure before falling back to API.
+            match &other {
+                Some(Err(e)) => {
+                    tracing::warn!(error = %e, "codeload request failed, falling back to API");
+                }
+                Some(Ok(r)) => {
+                    tracing::warn!(status = %r.status(), "codeload returned non-2xx, falling back to API");
+                }
+                None => {} // No direct URL attempted (pinned ref) — expected, no warning needed
+            }
+            // Fallback to API endpoint (follows 302 redirect and supports
+            // pinned tags / commit SHAs).
+            tracing::debug!(url = %api_url, git_ref = %git_ref, "downloading tarball via GitHub API");
             let mut req = http
                 .get(&api_url)
                 .header("User-Agent", "orbflow-registry")

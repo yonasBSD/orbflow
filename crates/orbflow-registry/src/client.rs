@@ -16,6 +16,7 @@
 //! 4. Users browse plugins in the Marketplace tab
 //! 5. Install downloads the binary from the plugin's GitHub Releases
 
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::manifest::PluginSummary;
@@ -36,7 +37,7 @@ const MAX_INDEX_BYTES: usize = 5 * 1024 * 1024;
 pub struct CommunityIndex {
     http: reqwest::Client,
     index_url: String,
-    cache: tokio::sync::RwLock<Option<(Instant, Vec<CommunityPlugin>)>>,
+    cache: tokio::sync::RwLock<Option<(Instant, Arc<Vec<CommunityPlugin>>)>>,
 }
 
 /// A plugin entry in the community index (plugins.json).
@@ -77,6 +78,9 @@ pub struct CommunityPlugin {
     /// GitHub repository (e.g., "username/orbflow-slack"). Optional for community plugins.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub repo: Option<String>,
+    /// Git ref (commit SHA, tag, or branch) used for installation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub git_ref: Option<String>,
     /// License (SPDX identifier).
     #[serde(default)]
     pub license: String,
@@ -143,31 +147,35 @@ impl CommunityIndex {
 
     /// Returns the cached index if fresh, otherwise fetches from GitHub.
     ///
-    /// Uses a write lock for the entire refresh path to prevent cache stampede:
-    /// only one concurrent caller fetches from GitHub while others wait.
+    /// Fast path acquires only a read lock (Arc::clone is a pointer copy).
+    /// The network fetch happens outside any lock to avoid blocking readers
+    /// during the up-to-15s GitHub request. A double-check after the write
+    /// lock handles concurrent refreshes without stampede.
     async fn cached_index(&self) -> Result<Vec<CommunityPlugin>, RegistryError> {
-        // Fast path: read lock.
+        // Fast path: read lock only — Arc::clone is a pointer copy, not a full clone.
         {
             let guard = self.cache.read().await;
             if let Some((fetched_at, plugins)) = guard.as_ref()
                 && fetched_at.elapsed() < CACHE_TTL
             {
-                return Ok(plugins.clone());
+                return Ok((**plugins).clone());
             }
-        }
+        } // read lock dropped before network I/O
 
-        // Slow path: acquire write lock and double-check (another task may
-        // have refreshed while we waited for the write lock).
+        // Fetch outside any lock to avoid blocking concurrent readers.
+        let fresh = Arc::new(self.fetch_index().await?);
+
+        // Re-acquire write lock and double-check: another task may have
+        // refreshed while we were fetching.
         let mut guard = self.cache.write().await;
-        if let Some((fetched_at, plugins)) = guard.as_ref()
+        if let Some((fetched_at, cached)) = guard.as_ref()
             && fetched_at.elapsed() < CACHE_TTL
         {
-            return Ok(plugins.clone());
+            return Ok((**cached).clone());
         }
 
-        let plugins = self.fetch_index().await?;
-        *guard = Some((Instant::now(), plugins.clone()));
-        Ok(plugins)
+        *guard = Some((Instant::now(), Arc::clone(&fresh)));
+        Ok(Arc::try_unwrap(fresh).unwrap_or_else(|arc| (*arc).clone()))
     }
 
     /// Fetches the full community plugin index from GitHub (bypasses cache).
@@ -331,6 +339,7 @@ fn to_index_entry(p: &CommunityPlugin) -> orbflow_core::ports::PluginIndexEntry 
         readme: None,
         path: p.path.clone(),
         protocol: p.protocol.clone(),
+        git_ref: p.git_ref.clone(),
         checksum: p.checksum.clone(),
     }
 }
@@ -393,6 +402,7 @@ mod tests {
             language: None,
             path: None,
             repo: None,
+            git_ref: None,
             license: String::new(),
             orbflow_version: String::new(),
             downloads: 0,

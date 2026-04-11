@@ -10,6 +10,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use crate::client::RegistryError;
 use orbflow_core::OrbflowError;
 use orbflow_core::ports::{PluginIndex, PluginIndexEntry, PluginInstaller};
 
@@ -19,6 +20,8 @@ pub struct MergedIndex {
     local: Arc<dyn PluginIndex>,
     community: Arc<dyn PluginIndex>,
     http_client: reqwest::Client,
+    /// Per-plugin install mutexes to prevent TOCTOU races on concurrent installs.
+    install_locks: std::sync::Mutex<std::collections::HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
 }
 
 impl MergedIndex {
@@ -33,6 +36,7 @@ impl MergedIndex {
             local,
             community,
             http_client,
+            install_locks: std::sync::Mutex::new(std::collections::HashMap::new()),
         }
     }
 }
@@ -82,6 +86,13 @@ impl PluginInstaller for MergedIndex {
         name: &str,
         dest: &std::path::Path,
     ) -> Result<usize, OrbflowError> {
+        // Acquire a per-plugin lock to prevent TOCTOU races on concurrent installs.
+        let plugin_lock = {
+            let mut locks = self.install_locks.lock().unwrap();
+            Arc::clone(locks.entry(name.to_string()).or_insert_with(|| Arc::new(tokio::sync::Mutex::new(()))))
+        };
+        let _guard = plugin_lock.lock().await;
+
         // Look up the plugin entry from the index.
         let entry = self.get_entry(name).await?.ok_or(OrbflowError::NotFound)?;
 
@@ -99,7 +110,7 @@ impl PluginInstaller for MergedIndex {
                 }
             })
             .await
-            .unwrap_or(None)
+            .map_err(|e| OrbflowError::Internal(format!("manifest read task panicked: {e}")))?
         };
         if let Some(local) = local_manifest {
             let local_ver = local["version"].as_str().unwrap_or("");
@@ -118,6 +129,18 @@ impl PluginInstaller for MergedIndex {
                 "upgrading plugin to newer version"
             );
         }
+
+        // If the resolved entry has no checksum (local entry), try the community
+        // index so that upgrades can proceed with integrity verification.
+        let entry = if entry.checksum.is_none() {
+            if let Some(community_entry) = self.community.get_entry(name).await? {
+                community_entry
+            } else {
+                entry
+            }
+        } else {
+            entry
+        };
 
         let plugin_path = entry.path.as_deref().unwrap_or("");
         if plugin_path.is_empty() {
@@ -148,18 +171,49 @@ impl PluginInstaller for MergedIndex {
             .and_then(|r| r.strip_prefix("https://github.com/"))
             .or(entry.repository.as_deref())
             .unwrap_or("orbflow-dev/orbflow-plugins");
+        // Validate repo is exactly owner/repo format — reject injection attempts.
+        if repo.contains("://")
+            || repo.split('/').count() != 2
+            || repo.contains("..")
+            || repo.chars().any(|c| c.is_whitespace() || c == '#' || c == '?')
+        {
+            return Err(OrbflowError::InvalidNodeConfig(format!(
+                "plugin '{name}' has invalid repository format"
+            )));
+        }
+        let git_ref = entry
+            .git_ref
+            .as_deref()
+            .unwrap_or(crate::install::DEFAULT_REF);
 
-        // D7 fix: use DEFAULT_REF from install module instead of hardcoded "master".
         crate::install::download_plugin_from(
             &self.http_client,
             repo,
-            crate::install::DEFAULT_REF,
+            git_ref,
             plugin_path,
             dest,
             Some(checksum),
         )
         .await
-        .map_err(|e| OrbflowError::Internal(format!("plugin download failed: {e}")))
+        .map_err(|e| match e {
+            RegistryError::Parse(msg) => {
+                OrbflowError::Internal(format!("plugin '{name}' cannot be installed: {msg}"))
+            }
+            RegistryError::InvalidUrl(msg) => {
+                OrbflowError::InvalidNodeConfig(format!(
+                    "plugin '{name}' cannot be installed: {msg}"
+                ))
+            }
+            RegistryError::Network(msg) => {
+                OrbflowError::Internal(format!("plugin '{name}' download failed: {msg}"))
+            }
+            RegistryError::Server(msg) => {
+                OrbflowError::Internal(format!("plugin '{name}' registry error: {msg}"))
+            }
+            RegistryError::Io(msg) => {
+                OrbflowError::Internal(format!("plugin '{name}' install failed: {msg}"))
+            }
+        })
     }
 }
 
@@ -224,6 +278,7 @@ mod tests {
             readme: None,
             path: None,
             protocol: None,
+            git_ref: None,
             checksum: None,
         }
     }
