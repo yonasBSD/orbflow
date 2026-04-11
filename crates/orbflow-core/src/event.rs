@@ -397,7 +397,7 @@ mod tests {
     #[test]
     fn test_event_type_accessor() {
         let base = BaseEvent::new(InstanceId::new("i-1"), 1);
-        let events = vec![
+        let events = [
             DomainEvent::InstanceStarted(InstanceStartedEvent {
                 base: base.clone(),
                 input: HashMap::new(),

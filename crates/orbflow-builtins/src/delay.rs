@@ -144,11 +144,11 @@ fn format_duration(d: Duration) -> String {
     let total_ms = d.as_millis();
     if total_ms < 1_000 {
         format!("{total_ms}ms")
-    } else if total_ms % 1_000 == 0 {
+    } else if total_ms.is_multiple_of(1_000) {
         let secs = total_ms / 1_000;
         if secs < 60 {
             format!("{secs}s")
-        } else if secs % 60 == 0 {
+        } else if secs.is_multiple_of(60) {
             format!("{}m", secs / 60)
         } else {
             format!("{}m{}s", secs / 60, secs % 60)
