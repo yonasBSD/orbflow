@@ -124,12 +124,18 @@ describe("NodeSchemaRegistry", () => {
       expect(registry.getAll()).toEqual([]);
     });
 
-    it("returns a new array each time (no reference sharing)", () => {
+    it("returns a stable snapshot until the registry changes", () => {
       const registry = new NodeSchemaRegistry([httpNode]);
       const a = registry.getAll();
       const b = registry.getAll();
-      expect(a).not.toBe(b);
+      expect(a).toBe(b);
       expect(a).toEqual(b);
+
+      registry.register(emailNode);
+
+      const c = registry.getAll();
+      expect(c).not.toBe(a);
+      expect(c).toHaveLength(2);
     });
   });
 
@@ -401,15 +407,13 @@ describe("NodeSchemaRegistry", () => {
       );
     });
 
-    it("resolves relative paths without leading slash", () => {
-      expect(NodeSchemaRegistry.resolveIconUrl(base, "icons/globe.svg")).toBe(
-        "http://localhost:8080icons/globe.svg"
-      );
+    it("rejects relative paths without a leading slash", () => {
+      expect(NodeSchemaRegistry.resolveIconUrl(base, "icons/globe.svg")).toBeUndefined();
     });
 
-    it("returns absolute http URLs as-is", () => {
+    it("rejects absolute http URLs", () => {
       const url = "http://example.com/icon.png";
-      expect(NodeSchemaRegistry.resolveIconUrl(base, url)).toBe(url);
+      expect(NodeSchemaRegistry.resolveIconUrl(base, url)).toBeUndefined();
     });
 
     it("returns absolute https URLs as-is", () => {
@@ -453,10 +457,8 @@ describe("NodeSchemaRegistry", () => {
       ).toBeUndefined();
     });
 
-    it("handles whitespace-padded URLs by trimming", () => {
-      expect(NodeSchemaRegistry.resolveIconUrl(base, "  /icons/globe.svg  ")).toBe(
-        "http://localhost:8080  /icons/globe.svg  "
-      );
+    it("rejects whitespace-padded relative URLs", () => {
+      expect(NodeSchemaRegistry.resolveIconUrl(base, "  /icons/globe.svg  ")).toBeUndefined();
     });
 
     it("blocks javascript: with leading whitespace after trim", () => {
