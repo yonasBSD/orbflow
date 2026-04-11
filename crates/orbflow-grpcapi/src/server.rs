@@ -24,21 +24,28 @@ use crate::types;
 // Request / Response types (JSON wire format, matches Go grpcapi/types.go)
 // ---------------------------------------------------------------------------
 
+// These wire-format structs document the JSON contract even though request
+// dispatch currently deserializes through `serde_json::Value` to support
+// envelope-level auth inspection before typed decoding.
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateWorkflowRequest {
     pub definition: Vec<u8>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GetWorkflowRequest {
     pub id: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WorkflowResponse {
     pub data: Vec<u8>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ListRequest {
     #[serde(default)]
@@ -47,12 +54,14 @@ pub struct ListRequest {
     pub limit: i32,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ListWorkflowsResponse {
     pub items: Vec<Vec<u8>>,
     pub total: i64,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StartWorkflowRequest {
     pub workflow_id: String,
@@ -60,16 +69,19 @@ pub struct StartWorkflowRequest {
     pub input: Vec<u8>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GetInstanceRequest {
     pub id: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CancelInstanceRequest {
     pub id: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InstanceResponse {
     pub data: Vec<u8>,
