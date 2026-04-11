@@ -213,8 +213,8 @@ mod tests {
         assert_eq!(data.get("user").unwrap(), "admin");
         assert_eq!(data.get("sslmode").unwrap(), "require");
         // SECURITY: password must NOT appear in node output.
-        assert!(data.get("password").is_none());
-        assert!(data.get("dsn").is_none());
+        assert!(!data.contains_key("password"));
+        assert!(!data.contains_key("dsn"));
     }
 
     #[tokio::test]

@@ -522,7 +522,7 @@ mod tests {
     #[test]
     fn test_merkle_single_leaf() {
         let leaf = compute_event_hash(b"event0", GENESIS_HASH);
-        let tree = MerkleTree::build(&[leaf.clone()]);
+        let tree = MerkleTree::build(std::slice::from_ref(&leaf));
         assert_eq!(tree.root(), leaf.as_str());
         // Single leaf needs no proof nodes.
         assert!(tree.proof(0).is_empty());

@@ -608,7 +608,7 @@ mod tests {
 
     #[test]
     fn event_type_returns_correct_variant_for_all_events() {
-        let expected = vec![
+        let expected = [
             EventType::InstanceStarted,
             EventType::NodeQueued,
             EventType::NodeStarted,

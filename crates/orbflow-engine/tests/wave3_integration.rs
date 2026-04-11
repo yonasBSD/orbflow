@@ -93,10 +93,9 @@ fn build_engine_with_rbac(
         builder = builder.rbac(policy);
     }
 
-    let engine = Arc::new(OrbflowEngine::new(
+    Arc::new(OrbflowEngine::new(
         builder.build().expect("test engine options"),
-    ));
-    engine
+    ))
 }
 
 /// Simple two-node workflow: trigger → action.

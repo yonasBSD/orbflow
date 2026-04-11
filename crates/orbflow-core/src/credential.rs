@@ -688,7 +688,7 @@ mod tests {
         assert_eq!(back.fields.len(), 2);
         assert_eq!(back.fields[0].key, "client_id");
         assert!(back.fields[0].required);
-        assert!(!back.fields[1].placeholder.is_some()); // None was serialized away
+        assert!(back.fields[1].placeholder.is_none()); // None was serialized away
     }
 
     #[test]
