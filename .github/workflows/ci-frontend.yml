@@ -3,9 +3,9 @@ name: Frontend CI
 on:
   push:
     branches: [main]
-    paths: ["apps/**", "packages/**", "pnpm-lock.yaml"]
+    paths: ["apps/**", "packages/**", "pnpm-lock.yaml", ".github/workflows/ci-frontend.yml"]
   pull_request:
-    paths: ["apps/**", "packages/**", "pnpm-lock.yaml"]
+    paths: ["apps/**", "packages/**", "pnpm-lock.yaml", ".github/workflows/ci-frontend.yml"]
 
 permissions:
   contents: read
