@@ -25,22 +25,17 @@ use crate::credential::CredentialId;
 // ---------------------------------------------------------------------------
 
 /// Determines how a credential is shared with plugins/MCP servers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CredentialAccessTier {
     /// Plugin never sees the credential. Worker proxies HTTP calls on behalf
     /// of the plugin.
+    #[default]
     Proxy,
     /// Plugin receives a short-lived, scope-limited token (future).
     ScopedToken,
     /// Plugin receives the raw credential value. Must be explicitly opted in.
     Raw,
-}
-
-impl Default for CredentialAccessTier {
-    fn default() -> Self {
-        Self::Proxy
-    }
 }
 
 // ---------------------------------------------------------------------------

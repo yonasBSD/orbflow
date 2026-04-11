@@ -297,14 +297,18 @@ impl MerkleTree {
 
         // Walk from leaves up to (but not including) the root layer.
         for layer in &self.layers[..self.layers.len() - 1] {
-            let sibling_idx = if idx % 2 == 0 { idx + 1 } else { idx - 1 };
+            let sibling_idx = if idx.is_multiple_of(2) {
+                idx + 1
+            } else {
+                idx - 1
+            };
             let sibling_hash = if sibling_idx < layer.len() {
                 layer[sibling_idx].clone()
             } else {
                 // Odd layer — the element is duplicated.
                 layer[idx].clone()
             };
-            let position = if idx % 2 == 0 {
+            let position = if idx.is_multiple_of(2) {
                 MerklePosition::Right
             } else {
                 MerklePosition::Left
@@ -347,7 +351,7 @@ fn hex_encode(bytes: &[u8]) -> String {
 
 /// Hex-decodes a string into bytes. Returns `None` on invalid input.
 fn hex_decode(s: &str) -> Option<Vec<u8>> {
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return None;
     }
     (0..s.len())

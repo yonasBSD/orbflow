@@ -10,6 +10,7 @@ on:
     - cron: "0 6 * * 1" # Every Monday at 06:00 UTC
 
 permissions:
+  checks: write
   contents: read
 
 jobs:

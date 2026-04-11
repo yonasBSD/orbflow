@@ -41,24 +41,20 @@ impl From<&str> for WorkflowId {
 }
 
 /// Lifecycle state of a workflow definition.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DefinitionStatus {
+    #[default]
     Draft,
     Active,
     Archived,
 }
 
-impl Default for DefinitionStatus {
-    fn default() -> Self {
-        Self::Draft
-    }
-}
-
 /// Categorizes nodes for routing to the correct executor.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NodeType {
+    #[default]
     Builtin,
     Plugin,
 }
@@ -80,25 +76,14 @@ impl<'de> serde::Deserialize<'de> for NodeType {
     }
 }
 
-impl Default for NodeType {
-    fn default() -> Self {
-        Self::Builtin
-    }
-}
-
 /// Distinguishes the three top-level node categories.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NodeKind {
     Trigger,
+    #[default]
     Action,
     Capability,
-}
-
-impl Default for NodeKind {
-    fn default() -> Self {
-        Self::Action
-    }
 }
 
 /// Indicates how a parameter gets its value.
