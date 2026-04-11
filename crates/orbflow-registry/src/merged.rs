@@ -89,7 +89,11 @@ impl PluginInstaller for MergedIndex {
         // Acquire a per-plugin lock to prevent TOCTOU races on concurrent installs.
         let plugin_lock = {
             let mut locks = self.install_locks.lock().unwrap();
-            Arc::clone(locks.entry(name.to_string()).or_insert_with(|| Arc::new(tokio::sync::Mutex::new(()))))
+            Arc::clone(
+                locks
+                    .entry(name.to_string())
+                    .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(()))),
+            )
         };
         let _guard = plugin_lock.lock().await;
 
@@ -175,7 +179,9 @@ impl PluginInstaller for MergedIndex {
         if repo.contains("://")
             || repo.split('/').count() != 2
             || repo.contains("..")
-            || repo.chars().any(|c| c.is_whitespace() || c == '#' || c == '?')
+            || repo
+                .chars()
+                .any(|c| c.is_whitespace() || c == '#' || c == '?')
         {
             return Err(OrbflowError::InvalidNodeConfig(format!(
                 "plugin '{name}' has invalid repository format"
@@ -199,11 +205,9 @@ impl PluginInstaller for MergedIndex {
             RegistryError::Parse(msg) => {
                 OrbflowError::Internal(format!("plugin '{name}' cannot be installed: {msg}"))
             }
-            RegistryError::InvalidUrl(msg) => {
-                OrbflowError::InvalidNodeConfig(format!(
-                    "plugin '{name}' cannot be installed: {msg}"
-                ))
-            }
+            RegistryError::InvalidUrl(msg) => OrbflowError::InvalidNodeConfig(format!(
+                "plugin '{name}' cannot be installed: {msg}"
+            )),
             RegistryError::Network(msg) => {
                 OrbflowError::Internal(format!("plugin '{name}' download failed: {msg}"))
             }
