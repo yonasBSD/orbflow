@@ -411,7 +411,7 @@ impl PgStore {
     /// Steps (all within `BEGIN`/`COMMIT`):
     /// 1. `SELECT ... FOR UPDATE` on the CR row — locks it against concurrent merges
     /// 2. Verify status is still `approved`
-    /// 3. Verify workflow version matches `expected_version` (stale-version guard)
+    /// 3. Lock the current workflow row and merge against its latest version
     /// 4. Update the workflow definition and bump version
     /// 5. Mark the CR as `merged`
     pub(crate) async fn merge_change_request(

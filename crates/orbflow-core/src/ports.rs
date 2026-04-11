@@ -614,10 +614,9 @@ pub trait ChangeRequestStore: Send + Sync {
     /// Atomically merges an approved change request into its workflow.
     ///
     /// Within a single transaction: locks the CR row, verifies it is still
-    /// `Approved`, checks the workflow version matches `expected_version`,
-    /// updates the workflow definition, bumps the version, and marks the CR
-    /// as `Merged`. Returns `Conflict` if the CR status changed or the
-    /// workflow version is stale.
+    /// `Approved`, applies the proposed definition onto the latest workflow
+    /// version, bumps the version, and marks the CR as `Merged`. Returns
+    /// `Conflict` if the CR status changed during merge.
     async fn merge_change_request(
         &self,
         cr_id: &str,

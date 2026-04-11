@@ -460,7 +460,7 @@ impl ChangeRequestStore for MemStore {
     async fn merge_change_request(
         &self,
         cr_id: &str,
-        expected_version: i32,
+        _expected_version: i32,
         new_definition: &serde_json::Value,
     ) -> Result<(), OrbflowError> {
         let mut cr_map = self.change_requests.write().await;
@@ -473,13 +473,9 @@ impl ChangeRequestStore for MemStore {
 
         let workflow_id = cr.workflow_id.clone();
 
-        // Get current workflow and verify version matches (stale-version guard).
+        // Get current workflow and merge against the latest definition.
         let mut wf_map = self.workflows.write().await;
         let wf = wf_map.get(&workflow_id).ok_or(OrbflowError::NotFound)?;
-
-        if wf.version != expected_version {
-            return Err(OrbflowError::Conflict);
-        }
 
         // Update workflow: bump version and apply the new definition.
         let mut updated_wf = deep_clone(wf)?;

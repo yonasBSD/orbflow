@@ -2114,9 +2114,10 @@ pub async fn install_plugin(
     //
     // If no valid manifest was downloaded, construct a PluginManifest-compatible
     // JSON from the index entry so it can be parsed on restart.
-    let has_valid_manifest = downloaded_manifest
-        .as_ref()
-        .is_some_and(|m| m.get("protocol").is_some_and(|p| p.is_object() || p.is_string()));
+    let has_valid_manifest = downloaded_manifest.as_ref().is_some_and(|m| {
+        m.get("protocol")
+            .is_some_and(|p| p.is_object() || p.is_string())
+    });
 
     let manifest_str = {
         let manifest_json =
@@ -2333,7 +2334,7 @@ pub async fn validate_manifest(Json(body): Json<serde_json::Value>) -> Response 
         {
             errors.push("git_ref must be a valid pinned commit SHA, tag, or branch name".into());
         }
-        Some(_) | None => {}   // git_ref is optional; installer defaults to master
+        Some(_) | None => {} // git_ref is optional; installer defaults to master
     }
 
     match body.get("checksum").and_then(|v| v.as_str()) {
@@ -3493,7 +3494,7 @@ pub async fn merge_change_request(
         ),
         Err(OrbflowError::Conflict) => write_error(
             StatusCode::CONFLICT,
-            "base version is stale or change request status changed — reload and retry",
+            "change request status changed during merge — reload and retry",
         ),
         Err(e) => {
             error!(error = %e, "failed to merge change request");
