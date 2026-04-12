@@ -22,6 +22,8 @@ Build workflows visually, run them reliably, and manage AI, plugins, approvals, 
 
 Orbflow is a visual workflow platform for teams that want to connect APIs, AI steps, schedules, webhooks, and human approvals without stitching everything together by hand.
 
+If you are building against Orbflow, start with the SDK repos: [orbflow-dev/orbflow-python](https://github.com/orbflow-dev/orbflow-python), [orbflow-dev/orbflow-typescript](https://github.com/orbflow-dev/orbflow-typescript), and the community plugin registry at [orbflow-dev/orbflow-plugins](https://github.com/orbflow-dev/orbflow-plugins).
+
 You can use it to:
 
 - build automations in a canvas instead of starting with glue code
@@ -197,7 +199,8 @@ Orbflow uses a Rust backend workspace, a Next.js frontend, PostgreSQL for persis
 ### Extensibility
 
 - **21 built-in nodes** -- AI, data processing, integration, control flow, and triggers
-- **Plugin system** -- subprocess JSON-RPC and gRPC protocols for custom nodes in any language
+- **Plugin system** -- subprocess JSON-RPC and ConnectRPC-compatible gRPC protocols for custom nodes. Official SDKs are available for Python and TypeScript/ES, and the gRPC wire protocol means plugins can be built in any language with gRPC support.
+- **Plugin registry** -- community plugins are published in [`orbflow-dev/orbflow-plugins`](https://github.com/orbflow-dev/orbflow-plugins)
 - **Trigger system** -- cron schedules, webhooks, and event-driven execution
 - **Visual builder** -- drag-and-drop canvas with node configuration, live execution overlay, and a plugin marketplace
 
