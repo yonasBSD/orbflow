@@ -60,14 +60,14 @@ jobs:
         if: matrix.archive == 'tar.gz'
         run: |
           cd target/${{ matrix.target }}/release
-          tar czf ../../../orbflow-${{ github.ref_name }}-${{ matrix.target }}.tar.gz orbflow-server orbflow-worker-bin
+          tar czf ../../../orbflow-${{ github.ref_name }}-${{ matrix.target }}.tar.gz orbflow-server orbflow-worker
           cd ../../..
 
       - name: Package (Windows)
         if: matrix.archive == 'zip'
         shell: pwsh
         run: |
-          Compress-Archive -Path "target/${{ matrix.target }}/release/orbflow-server.exe","target/${{ matrix.target }}/release/orbflow-worker-bin.exe" -DestinationPath "orbflow-${{ github.ref_name }}-${{ matrix.target }}.zip"
+          Compress-Archive -Path "target/${{ matrix.target }}/release/orbflow-server.exe","target/${{ matrix.target }}/release/orbflow-worker.exe" -DestinationPath "orbflow-${{ github.ref_name }}-${{ matrix.target }}.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

@@ -10,8 +10,6 @@ target/
 # Node.js / Frontend
 **/node_modules/
 **/.next/
-apps/web/
-packages/
 
 # Docker (prevent recursive context)
 Dockerfile*
