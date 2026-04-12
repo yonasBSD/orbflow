@@ -46,18 +46,18 @@ Most people use Orbflow in this order:
 
 These screenshots come from [`docs/user-guide/screenshots/`](docs/user-guide/screenshots/).
 
-| Page | What it is for | Image file | Preview |
-|------|----------------|------------|---------|
-| Builder | Create automations from scratch in the visual canvas | [`01-builder.png`](docs/user-guide/screenshots/01-builder.png) | <img src="docs/user-guide/screenshots/01-builder.png" alt="Builder page" width="260" /> |
-| Activity | Monitor workflow runs and inspect execution progress | [`02-activity.png`](docs/user-guide/screenshots/02-activity.png) | <img src="docs/user-guide/screenshots/02-activity.png" alt="Activity page" width="260" /> |
-| Analytics | View execution metrics, latency, and SLA trends | [`03-analytics.png`](docs/user-guide/screenshots/03-analytics.png) | <img src="docs/user-guide/screenshots/03-analytics.png" alt="Analytics page" width="260" /> |
-| Templates | Start from prebuilt workflows instead of building from zero | [`04-templates.png`](docs/user-guide/screenshots/04-templates.png) | <img src="docs/user-guide/screenshots/04-templates.png" alt="Templates page" width="260" /> |
-| Credentials | Store and manage secrets, tokens, and API keys | [`05-credentials.png`](docs/user-guide/screenshots/05-credentials.png) | <img src="docs/user-guide/screenshots/05-credentials.png" alt="Credentials page" width="260" /> |
-| Marketplace | Browse, install, and manage plugins and integrations | [`06-marketplace.png`](docs/user-guide/screenshots/06-marketplace.png) | <img src="docs/user-guide/screenshots/06-marketplace.png" alt="Marketplace page" width="260" /> |
-| Reviews | Create and review change requests before merging workflow updates | [`07-reviews.png`](docs/user-guide/screenshots/07-reviews.png) | <img src="docs/user-guide/screenshots/07-reviews.png" alt="Reviews page" width="260" /> |
-| Budgets | Track spend and set cost limits for workflows | [`08-budgets.png`](docs/user-guide/screenshots/08-budgets.png) | <img src="docs/user-guide/screenshots/08-budgets.png" alt="Budgets page" width="260" /> |
-| Alerts | Define monitoring rules and notification triggers | [`09-alerts.png`](docs/user-guide/screenshots/09-alerts.png) | <img src="docs/user-guide/screenshots/09-alerts.png" alt="Alerts page" width="260" /> |
-| Access | Manage roles and permissions for your team | [`10-access.png`](docs/user-guide/screenshots/10-access.png) | <img src="docs/user-guide/screenshots/10-access.png" alt="Access page" width="260" /> |
+| Page | What it is for | Preview |
+|------|----------------|---------|
+| Builder | Create automations from scratch in the visual canvas | <img src="docs/user-guide/screenshots/01-builder.png" alt="Builder page" width="260" /> |
+| Activity | Monitor workflow runs and inspect execution progress | <img src="docs/user-guide/screenshots/02-activity.png" alt="Activity page" width="260" /> |
+| Analytics | View execution metrics, latency, and SLA trends | <img src="docs/user-guide/screenshots/03-analytics.png" alt="Analytics page" width="260" /> |
+| Templates | Start from prebuilt workflows instead of building from zero | <img src="docs/user-guide/screenshots/04-templates.png" alt="Templates page" width="260" /> |
+| Credentials | Store and manage secrets, tokens, and API keys | <img src="docs/user-guide/screenshots/05-credentials.png" alt="Credentials page" width="260" /> |
+| Marketplace | Browse, install, and manage plugins and integrations | <img src="docs/user-guide/screenshots/06-marketplace.png" alt="Marketplace page" width="260" /> |
+| Reviews | Create and review change requests before merging workflow updates | <img src="docs/user-guide/screenshots/07-reviews.png" alt="Reviews page" width="260" /> |
+| Budgets | Track spend and set cost limits for workflows | <img src="docs/user-guide/screenshots/08-budgets.png" alt="Budgets page" width="260" /> |
+| Alerts | Define monitoring rules and notification triggers | <img src="docs/user-guide/screenshots/09-alerts.png" alt="Alerts page" width="260" /> |
+| Access | Manage roles and permissions for your team | <img src="docs/user-guide/screenshots/10-access.png" alt="Access page" width="260" /> |
 
 ## Quick Start
 
