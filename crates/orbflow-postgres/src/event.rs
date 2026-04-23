@@ -147,18 +147,16 @@ impl EventStore for PgStore {
             ))
         })?;
 
-        let mut events = Vec::with_capacity(rows.len());
-        for row in &rows {
-            let event: DomainEvent = serde_json::from_value(row.data.clone()).map_err(|e| {
-                OrbflowError::Database(format!(
-                    "postgres: deserialize event type {} for instance {}: {e}",
-                    row.event_type, row.instance_id
-                ))
-            })?;
-            events.push(event);
-        }
-
-        Ok(events)
+        rows.into_iter()
+            .map(|row| {
+                serde_json::from_value(row.data).map_err(|e| {
+                    OrbflowError::Database(format!(
+                        "postgres: deserialize event type {} for instance {}: {e}",
+                        row.event_type, row.instance_id
+                    ))
+                })
+            })
+            .collect()
     }
 
     async fn save_snapshot(&self, inst: &Instance) -> Result<(), OrbflowError> {
@@ -234,21 +232,21 @@ impl EventStore for PgStore {
             ))
         })?;
 
-        let mut records = Vec::with_capacity(rows.len());
-        for (seq, row) in rows.into_iter().enumerate() {
-            let event_data = serde_json::to_vec(&row.data).map_err(|e| {
-                OrbflowError::Database(format!("postgres: serialize audit event data: {e}"))
-            })?;
-            records.push(audit::AuditRecord {
-                prev_hash: row
-                    .prev_hash
-                    .unwrap_or_else(|| audit::GENESIS_HASH.to_string()),
-                event_hash: row.event_hash.unwrap_or_default(),
-                event_data,
-                seq: seq as u64,
-            });
-        }
-
-        Ok(records)
+        rows.into_iter()
+            .enumerate()
+            .map(|(seq, row)| {
+                let event_data = serde_json::to_vec(&row.data).map_err(|e| {
+                    OrbflowError::Database(format!("postgres: serialize audit event data: {e}"))
+                })?;
+                Ok(audit::AuditRecord {
+                    prev_hash: row
+                        .prev_hash
+                        .unwrap_or_else(|| audit::GENESIS_HASH.to_string()),
+                    event_hash: row.event_hash.unwrap_or_default(),
+                    event_data,
+                    seq: seq as u64,
+                })
+            })
+            .collect()
     }
 }
