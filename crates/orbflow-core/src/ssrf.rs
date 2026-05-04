@@ -42,7 +42,13 @@ pub fn is_private_ip(ip: &IpAddr, allow_localhost: bool) -> Option<&'static str>
                 // If it becomes `0.0.0.1`, `is_loopback` is false, and it gets blocked by `v4.octets()[0] == 0`.
                 // So we must be careful not to blindly convert `::1`.
                 let segs = v6.segments();
-                if segs[0] == 0 && segs[1] == 0 && segs[2] == 0 && segs[3] == 0 && segs[4] == 0 && segs[5] == 0 {
+                if segs[0] == 0
+                    && segs[1] == 0
+                    && segs[2] == 0
+                    && segs[3] == 0
+                    && segs[4] == 0
+                    && segs[5] == 0
+                {
                     if segs[6] == 0 && segs[7] == 1 {
                         // ::1 is loopback, don't convert it to 0.0.0.1
                         *ip
@@ -116,11 +122,26 @@ mod tests {
 
     #[test]
     fn test_is_private_ip() {
-        assert_eq!(is_private_ip(&"127.0.0.1".parse().unwrap(), false), Some("loopback address"));
-        assert_eq!(is_private_ip(&"::1".parse().unwrap(), false), Some("loopback address"));
-        assert_eq!(is_private_ip(&"::ffff:127.0.0.1".parse().unwrap(), false), Some("loopback address"));
-        assert_eq!(is_private_ip(&"::ffff:169.254.169.254".parse().unwrap(), false), Some("link-local address"));
+        assert_eq!(
+            is_private_ip(&"127.0.0.1".parse().unwrap(), false),
+            Some("loopback address")
+        );
+        assert_eq!(
+            is_private_ip(&"::1".parse().unwrap(), false),
+            Some("loopback address")
+        );
+        assert_eq!(
+            is_private_ip(&"::ffff:127.0.0.1".parse().unwrap(), false),
+            Some("loopback address")
+        );
+        assert_eq!(
+            is_private_ip(&"::ffff:169.254.169.254".parse().unwrap(), false),
+            Some("link-local address")
+        );
         assert_eq!(is_private_ip(&"8.8.8.8".parse().unwrap(), false), None);
-        assert_eq!(is_private_ip(&"::ffff:8.8.8.8".parse().unwrap(), false), None);
+        assert_eq!(
+            is_private_ip(&"::ffff:8.8.8.8".parse().unwrap(), false),
+            None
+        );
     }
 }
