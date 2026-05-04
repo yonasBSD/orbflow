@@ -26,6 +26,48 @@ pub const ALLOWED_SCHEMES: &[&str] = &["http", "https"];
 /// `None` if it is a public address. When `allow_localhost` is `true`,
 /// loopback addresses are permitted.
 pub fn is_private_ip(ip: &IpAddr, allow_localhost: bool) -> Option<&'static str> {
+    let ip = match ip {
+        IpAddr::V6(v6) => {
+            if let Some(v4) = v6.to_ipv4_mapped() {
+                IpAddr::V4(v4)
+            } else if let Some(v4) = v6.to_ipv4() {
+                // to_ipv4() catches IPv4-compatible IPv6 addresses like `::127.0.0.1`
+                // But wait, `::1` gives `Some(0.0.0.1)`. We must only map it if it's
+                // a true IPv4-compatible IPv6 address. IPv4-compatible addresses
+                // have the first 96 bits as zero. So `v6.segments()[0..5] == [0,0,0,0,0]`.
+                // Note that `::1` has segments `[0,0,0,0,0,0,0,1]`. `to_ipv4()` returns `0.0.0.1`.
+                // `0.0.0.1` is not considered private by `v4.is_private()` or loopback by `is_loopback()`,
+                // but wait, `v4.octets()[0] == 0` is caught by our check! So `::1` would be blocked as non-routable!
+                // But `::1` is loopback. If `allow_localhost` is true, we should allow it.
+                // If it becomes `0.0.0.1`, `is_loopback` is false, and it gets blocked by `v4.octets()[0] == 0`.
+                // So we must be careful not to blindly convert `::1`.
+                let segs = v6.segments();
+                if segs[0] == 0
+                    && segs[1] == 0
+                    && segs[2] == 0
+                    && segs[3] == 0
+                    && segs[4] == 0
+                    && segs[5] == 0
+                {
+                    if segs[6] == 0 && segs[7] == 1 {
+                        // ::1 is loopback, don't convert it to 0.0.0.1
+                        *ip
+                    } else if segs[6] == 0 && segs[7] == 0 {
+                        // :: is unspecified
+                        *ip
+                    } else {
+                        IpAddr::V4(v4)
+                    }
+                } else {
+                    *ip
+                }
+            } else {
+                *ip
+            }
+        }
+        _ => *ip,
+    };
+
     if ip.is_loopback() && !allow_localhost {
         return Some("loopback address");
     }
@@ -71,5 +113,35 @@ pub fn is_private_ip(ip: &IpAddr, allow_localhost: bool) -> Option<&'static str>
             }
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_private_ip() {
+        assert_eq!(
+            is_private_ip(&"127.0.0.1".parse().unwrap(), false),
+            Some("loopback address")
+        );
+        assert_eq!(
+            is_private_ip(&"::1".parse().unwrap(), false),
+            Some("loopback address")
+        );
+        assert_eq!(
+            is_private_ip(&"::ffff:127.0.0.1".parse().unwrap(), false),
+            Some("loopback address")
+        );
+        assert_eq!(
+            is_private_ip(&"::ffff:169.254.169.254".parse().unwrap(), false),
+            Some("link-local address")
+        );
+        assert_eq!(is_private_ip(&"8.8.8.8".parse().unwrap(), false), None);
+        assert_eq!(
+            is_private_ip(&"::ffff:8.8.8.8".parse().unwrap(), false),
+            None
+        );
     }
 }
