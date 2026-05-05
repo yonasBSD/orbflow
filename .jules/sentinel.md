@@ -1,4 +1,4 @@
-## 2024-05-04 - Fix SSRF bypass via IPv4-mapped and IPv4-compatible IPv6 addresses
-**Vulnerability:** The SSRF validation function `is_private_ip` only validated the explicit IP format passed in. Attackers could bypass the filter by supplying IPv4-mapped (e.g., `::ffff:127.0.0.1`) or IPv4-compatible (e.g., `::127.0.0.1`) IPv6 addresses.
-**Learning:** Rust's `IpAddr` does not automatically unwrap IPv4-mapped or IPv4-compatible IPv6 addresses. Furthermore, `v6.to_ipv4()` converts the IPv6 loopback (`::1`) into `0.0.0.1`, which requires manual intervention to avoid being flagged incorrectly as non-routable instead of loopback.
-**Prevention:** Always unwrap IPv6 addresses mapped to IPv4 using `.to_ipv4_mapped()` and `.to_ipv4()` before evaluating them against IP blocklists. Verify `::1` behavior when converting.
+## 2024-05-05 - [CRITICAL] Prevent Unicode-based homograph attacks in identifier validation
+**Vulnerability:** The application was using `char::is_alphanumeric()` to validate plugin names and repositories. This Rust method allows all Unicode alphanumeric characters, meaning names with Cyrillic or Greek characters could pass validation.
+**Learning:** `char::is_alphanumeric()` in Rust is not ASCII-restricted and can lead to homograph attacks, where an attacker registers a plugin with a visually identical name using non-ASCII characters.
+**Prevention:** Always use `char::is_ascii_alphanumeric()` when validating system identifiers, URLs, or file paths where you expect standard ASCII characters.
