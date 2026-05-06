@@ -285,14 +285,14 @@ impl CommunityIndex {
         let valid_repo = repo.split('/').count() == 2
             && repo
                 .chars()
-                .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '/');
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '/');
         let valid_binary = binary_name
             .chars()
-            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.');
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.');
         let valid_version = plugin
             .version
             .chars()
-            .all(|c| c.is_alphanumeric() || c == '.' || c == '-');
+            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-');
 
         if !valid_repo || !valid_binary || !valid_version {
             return None;

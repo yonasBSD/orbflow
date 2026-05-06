@@ -1952,7 +1952,7 @@ pub async fn get_installed_plugin(
     // Validate plugin name: only alphanumeric, hyphens, underscores allowed.
     if !name
         .chars()
-        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
     {
         return write_error(StatusCode::BAD_REQUEST, "invalid plugin name");
     }
@@ -2026,7 +2026,7 @@ pub async fn install_plugin(
     // Validate plugin name.
     if !name
         .chars()
-        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
     {
         return write_error(StatusCode::BAD_REQUEST, "invalid plugin name");
     }
@@ -2240,7 +2240,7 @@ pub async fn validate_manifest(Json(body): Json<serde_json::Value>) -> Response 
     if let Some(name) = body.get("name").and_then(|v| v.as_str()) {
         if !name
             .chars()
-            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
         {
             errors.push(
                 "name must contain only alphanumeric characters, hyphens, and underscores".into(),
@@ -2381,7 +2381,7 @@ pub async fn uninstall_plugin(
     // Validate plugin name.
     if !name
         .chars()
-        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
     {
         return write_error(StatusCode::BAD_REQUEST, "invalid plugin name");
     }
