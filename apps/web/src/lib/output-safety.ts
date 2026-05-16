@@ -99,7 +99,10 @@ export function extractContentType(headers: unknown): string | null {
 const UNSAFE_URL_SCHEMES = ["javascript:", "data:text/html", "data:application/"] as const;
 
 export function isSafeUrl(url: string): boolean {
-  const lower = url.trim().toLowerCase();
+  // Strip non-printable control characters before checking to prevent XSS bypasses
+  // This removes characters in the \x00-\x1F and \x7F-\x9F ranges
+  const sanitizedUrl = url.replace(/[\x00-\x1F\x7F-\x9F]/g, "");
+  const lower = sanitizedUrl.trim().toLowerCase();
   return !UNSAFE_URL_SCHEMES.some((scheme) => lower.startsWith(scheme));
 }
 
