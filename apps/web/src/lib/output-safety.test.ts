@@ -193,6 +193,13 @@ describe("isSafeUrl", () => {
   it("trims whitespace", () => {
     expect(isSafeUrl("  javascript:alert(1)  ")).toBe(false);
   });
+
+  it("blocks javascript: URLs obfuscated with control characters", () => {
+    expect(isSafeUrl("\x01javascript:alert(1)")).toBe(false);
+    expect(isSafeUrl("java\x09script:alert(1)")).toBe(false);
+    expect(isSafeUrl("java\x00script:alert(1)")).toBe(false);
+    expect(isSafeUrl("\x0Bjavascript:alert(1)")).toBe(false);
+  });
 });
 
 describe("analyzeOutput", () => {
